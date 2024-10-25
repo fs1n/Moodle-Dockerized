@@ -13,6 +13,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
@@ -27,7 +35,11 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/moodle-dockerized:latest
+        tags: ${{ secrets.DOCKER_USERNAME }}/moodle-dockerized:${{ secrets.DOCKER_TAG }}
 
     - name: Logout from DockerHub
       run: docker logout
+
+    - name: Error handling
+      if: failure()
+      run: echo "An error occurred"
