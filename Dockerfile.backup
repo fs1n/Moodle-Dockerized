@@ -7,11 +7,11 @@ RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
 RUN sh -c 'echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
 RUN apt update -y
 
-RUN apt install php8.3-common php8.3-fpm php8.3-mysql php8.3-ctype php8.3-curl php8.3-dom php8.3-gd php8.3-iconv php8.3-intl php8.3-mbstring php8.3-simplexml php8.3-xml php8.3-zip php8.3-soap php8.3-tokenizer php8.3-xmlrpc -y
+RUN apt install php8.4-common php8.4-fpm php8.4-mysql php8.4-ctype php8.4-curl php8.4-dom php8.4-gd php8.4-iconv php8.4-intl php8.4-mbstring php8.4-simplexml php8.4-xml php8.4-zip php8.4-soap php8.4-tokenizer php8.4-xmlrpc -y
 
 COPY ./nginx/default.conf /etc/nginx/conf.d/default.conf
 
-RUN curl -sL --retry 5 --retry-connrefused --retry-max-time 120 https://download.moodle.org/download.php/direct/stable404/moodle-latest-404.tgz | tar xz -C /usr/share/nginx/html
+RUN curl -sL --retry 5 --retry-connrefused --retry-max-time 120 https://download.moodle.org/download.php/direct/stable500/moodle-latest-500.tgz | tar xz -C /usr/share/nginx/html
 
 RUN sed -i "/^\/\/.*xsendfile = 'X-Accel-Redirect';/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
 RUN sed -i "/^\/\/.*xsendfilealiases = array(/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
@@ -26,11 +26,11 @@ RUN mkdir /usr/share/nginx/html/upload_tmp
 RUN chown -R www-data:www-data /usr/share/nginx/html/upload_tmp
 RUN chmod -R 0755 /usr/share/nginx/html/upload_tmp
 
-RUN sed -i 's/^listen = .*/listen = 127.0.0.1:9000/' /etc/php/8.3/fpm/pool.d/www.conf
+RUN sed -i 's/^listen = .*/listen = 127.0.0.1:9000/' /etc/php/8.4/fpm/pool.d/www.conf
 RUN sed -i 's/#gzip  on;/gzip on;/g' /etc/nginx/nginx.conf
 RUN sed -i 's/#tcp_nopush     on;/tcp_nopush on;/g' /etc/nginx/nginx.conf
 
-COPY ./php/moodle.ini /etc/php/8.3/fpm/conf.d/moodle.ini
+COPY ./php/moodle.ini /etc/php/8.4/fpm/conf.d/moodle.ini
 COPY ./docker/supervisor/supervisord.conf /etc/supervisord.conf
 
 COPY ./cron/crontab /etc/cron.d/moodle

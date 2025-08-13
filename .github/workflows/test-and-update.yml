@@ -1,0 +1,284 @@
+name: Test and Update Versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      php_version:
+        description: 'PHP version to test (e.g., 8.2, 8.3)'
+        required: false
+        default: '8.2'
+        type: string
+      moodle_version:
+        description: 'Moodle version to test (e.g., 404, 405)'
+        required: false
+        default: '404'
+        type: string
+      create_release:
+        description: 'Create a new release if tests pass'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      latest_php: ${{ steps.check_php.outputs.latest }}
+      latest_moodle: ${{ steps.check_moodle.outputs.latest }}
+      current_php: ${{ steps.check_php.outputs.current }}
+      current_moodle: ${{ steps.check_moodle.outputs.current }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check latest PHP version
+      id: check_php
+      run: |
+        # Get latest PHP 8.x version from sury repository
+        LATEST_PHP=$(curl -s https://packages.sury.org/php/dists/bookworm/main/binary-amd64/Packages | grep -E "Package: php[0-9]+\.[0-9]+-common" | sed 's/Package: php//' | sed 's/-common//' | sort -V | tail -1)
+        CURRENT_PHP="${{ inputs.php_version }}"
+        echo "latest=$LATEST_PHP" >> $GITHUB_OUTPUT
+        echo "current=$CURRENT_PHP" >> $GITHUB_OUTPUT
+        echo "Latest PHP version: $LATEST_PHP"
+        echo "Testing PHP version: $CURRENT_PHP"
+
+    - name: Check latest Moodle version
+      id: check_moodle
+      run: |
+        # Get latest Moodle LTS version
+        LATEST_MOODLE=$(curl -s https://download.moodle.org/releases/latest/ | grep -oP 'stable\K[0-9]+' | sort -n | tail -1)
+        CURRENT_MOODLE="${{ inputs.moodle_version }}"
+        echo "latest=$LATEST_MOODLE" >> $GITHUB_OUTPUT
+        echo "current=$CURRENT_MOODLE" >> $GITHUB_OUTPUT
+        echo "Latest Moodle version: $LATEST_MOODLE"
+        echo "Testing Moodle version: $CURRENT_MOODLE"
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: check-versions
+    strategy:
+      matrix:
+        php_version: ["${{ inputs.php_version }}"]
+        moodle_version: ["${{ inputs.moodle_version }}"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Create test Dockerfile
+      run: |
+        # Create a parameterized Dockerfile for testing
+        cat > Dockerfile.test << 'EOF'
+        ARG PHP_VERSION=8.2
+        ARG MOODLE_VERSION=404
+        
+        FROM nginx:latest
+        
+        ARG PHP_VERSION
+        ARG MOODLE_VERSION
+        
+        RUN apt update -y
+        RUN apt install -y lsb-release apt-transport-https ca-certificates software-properties-common curl wget sudo supervisor cron
+        
+        RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
+        RUN sh -c 'echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
+        RUN apt update -y
+        
+        RUN apt install php${PHP_VERSION}-common php${PHP_VERSION}-fpm php${PHP_VERSION}-mysql php${PHP_VERSION}-ctype php${PHP_VERSION}-curl php${PHP_VERSION}-dom php${PHP_VERSION}-gd php${PHP_VERSION}-iconv php${PHP_VERSION}-intl php${PHP_VERSION}-mbstring php${PHP_VERSION}-simplexml php${PHP_VERSION}-xml php${PHP_VERSION}-zip php${PHP_VERSION}-soap php${PHP_VERSION}-tokenizer php${PHP_VERSION}-xmlrpc -y
+        
+        COPY ./nginx/default.conf /etc/nginx/conf.d/default.conf
+        
+        RUN curl -sL --retry 5 --retry-connrefused --retry-max-time 120 https://download.moodle.org/download.php/direct/stable${MOODLE_VERSION}/moodle-latest-${MOODLE_VERSION}.tgz | tar xz -C /usr/share/nginx/html
+        
+        RUN sed -i "/^\/\/.*xsendfile = 'X-Accel-Redirect';/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
+        RUN sed -i "/^\/\/.*xsendfilealiases = array(/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
+        RUN sed -i "/xsendfilealiases = array($/s/xsendfilealiases = array(/xsendfilealiases = array('\\/dataroot\\/' => \\\$CFG->dataroot);/g" /usr/share/nginx/html/moodle/config-dist.php
+        
+        RUN chown -R nginx:nginx /usr/share/nginx/html/moodle
+        RUN chmod -R 0755 /usr/share/nginx/html/moodle
+        RUN mkdir /usr/share/nginx/html/moodledata
+        RUN chown -R www-data:www-data /usr/share/nginx/html/moodledata
+        RUN chmod -R 0755 /usr/share/nginx/html/moodledata
+        RUN mkdir /usr/share/nginx/html/upload_tmp
+        RUN chown -R www-data:www-data /usr/share/nginx/html/upload_tmp
+        RUN chmod -R 0755 /usr/share/nginx/html/upload_tmp
+        
+        RUN sed -i "s/^listen = .*/listen = 127.0.0.1:9000/" /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
+        RUN sed -i 's/#gzip  on;/gzip on;/g' /etc/nginx/nginx.conf
+        RUN sed -i 's/#tcp_nopush     on;/tcp_nopush on;/g' /etc/nginx/nginx.conf
+        
+        COPY ./php/moodle.ini /etc/php/${PHP_VERSION}/fpm/conf.d/moodle.ini
+        COPY ./docker/supervisor/supervisord.conf /etc/supervisord.conf
+        
+        COPY ./cron/crontab /etc/cron.d/moodle
+        RUN chmod 0644 /etc/cron.d/moodle
+        RUN crontab /etc/cron.d/moodle
+        
+        COPY ./docker/entrypoint.sh /entrypoint.sh
+        RUN chmod +x /entrypoint.sh
+        
+        # Health check
+        HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+          CMD curl -f http://localhost/ || exit 1
+        
+        ENTRYPOINT ["/entrypoint.sh"]
+        EOF
+
+    - name: Build Docker image
+      run: |
+        docker build \
+          --build-arg PHP_VERSION=${{ matrix.php_version }} \
+          --build-arg MOODLE_VERSION=${{ matrix.moodle_version }} \
+          -f Dockerfile.test \
+          -t moodle-test:php${{ matrix.php_version }}-moodle${{ matrix.moodle_version }} .
+
+    - name: Test Docker image
+      run: |
+        # Start container in background
+        docker run -d --name moodle-test -p 8080:80 moodle-test:php${{ matrix.php_version }}-moodle${{ matrix.moodle_version }}
+        
+        # Wait for container to be ready
+        echo "Waiting for container to start..."
+        sleep 30
+        
+        # Check if container is running
+        if ! docker ps | grep moodle-test; then
+          echo "Container failed to start"
+          docker logs moodle-test
+          exit 1
+        fi
+        
+        # Test HTTP response
+        for i in {1..10}; do
+          if curl -f http://localhost:8080/moodle/ > /dev/null 2>&1; then
+            echo "Moodle is responding!"
+            break
+          fi
+          echo "Attempt $i: Waiting for Moodle to respond..."
+          sleep 10
+        done
+        
+        # Final check
+        if ! curl -f http://localhost:8080/moodle/ > /dev/null 2>&1; then
+          echo "Moodle failed to respond"
+          docker logs moodle-test
+          exit 1
+        fi
+        
+        # Check PHP version in container
+        PHP_VERSION_CHECK=$(docker exec moodle-test php -v | head -1)
+        echo "PHP Version in container: $PHP_VERSION_CHECK"
+        
+        # Cleanup
+        docker stop moodle-test
+        docker rm moodle-test
+
+    - name: Run PHPUnit tests
+      run: |
+        # Install PHP for running tests on host
+        sudo apt update
+        sudo apt install -y php${{ matrix.php_version }}-cli php${{ matrix.php_version }}-xml php${{ matrix.php_version }}-mbstring
+        
+        # Run PHPUnit tests
+        ./vendor/bin/phpunit --configuration phpunit.xml
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-php${{ matrix.php_version }}-moodle${{ matrix.moodle_version }}
+        path: |
+          tests/
+          .phpunit.result.cache
+
+  update-dockerfile:
+    runs-on: ubuntu-latest
+    needs: [check-versions, build-and-test]
+    if: success()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Update Dockerfile with new versions
+      run: |
+        # Update PHP version in Dockerfile
+        sed -i "s/php8\.[0-9]/php${{ inputs.php_version }}/g" Dockerfile
+        sed -i "s/\/8\.[0-9]\//\/${{ inputs.php_version }}\/g" Dockerfile
+        
+        # Update Moodle version in Dockerfile
+        sed -i "s/stable[0-9]\+/stable${{ inputs.moodle_version }}/g" Dockerfile
+        sed -i "s/latest-[0-9]\+/latest-${{ inputs.moodle_version }}/g" Dockerfile
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          Update to PHP ${{ inputs.php_version }} and Moodle ${{ inputs.moodle_version }}
+          
+          - Updated PHP version to ${{ inputs.php_version }}
+          - Updated Moodle version to ${{ inputs.moodle_version }}
+          - All tests passed successfully
+        title: "Update PHP ${{ inputs.php_version }} and Moodle ${{ inputs.moodle_version }}"
+        body: |
+          ## Version Update
+          
+          This PR updates the Docker image to use:
+          - **PHP Version**: ${{ inputs.php_version }}
+          - **Moodle Version**: ${{ inputs.moodle_version }}
+          
+          ## Test Results
+          ✅ Docker build successful
+          ✅ Container starts correctly
+          ✅ Moodle responds to HTTP requests
+          ✅ PHPUnit tests passed
+          
+          ## Version Comparison
+          - Latest PHP available: ${{ needs.check-versions.outputs.latest_php }}
+          - Latest Moodle available: ${{ needs.check-versions.outputs.latest_moodle }}
+        branch: update-php${{ inputs.php_version }}-moodle${{ inputs.moodle_version }}
+        delete-branch: true
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [check-versions, build-and-test, update-dockerfile]
+    if: ${{ inputs.create_release == true && success() }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "v${{ inputs.moodle_version }}-php${{ inputs.php_version }}"
+        release_name: "Moodle ${{ inputs.moodle_version }} with PHP ${{ inputs.php_version }}"
+        body: |
+          ## Moodle Docker Image Release
+          
+          This release includes:
+          - **Moodle Version**: ${{ inputs.moodle_version }}
+          - **PHP Version**: ${{ inputs.php_version }}
+          - **Nginx**: Latest
+          
+          ## What's Tested
+          ✅ Docker image builds successfully
+          ✅ Container starts and runs correctly
+          ✅ Moodle web interface is accessible
+          ✅ All PHPUnit tests pass
+          
+          ## Version Information
+          - Latest PHP available: ${{ needs.check-versions.outputs.latest_php }}
+          - Latest Moodle available: ${{ needs.check-versions.outputs.latest_moodle }}
+          
+          ## Usage
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}:v${{ inputs.moodle_version }}-php${{ inputs.php_version }}
+          docker run -d -p 8080:80 ghcr.io/${{ github.repository }}:v${{ inputs.moodle_version }}-php${{ inputs.php_version }}
+          ```
+        draft: false
+        prerelease: false

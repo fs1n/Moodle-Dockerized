@@ -1,9 +1,8 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -11,7 +10,11 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+
+    - name: Extract release tag
+      id: extract_tag
+      run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
     - name: Cache Docker layers
       uses: actions/cache@v3
@@ -35,11 +38,16 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/moodle-dockerized:${{ secrets.DOCKER_TAG }}
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/moodle-dockerized:${{ steps.extract_tag.outputs.tag }}
+          ${{ secrets.DOCKER_USERNAME }}/moodle-dockerized:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
     - name: Logout from DockerHub
       run: docker logout
-
-    - name: Error handling
-      if: failure()
-      run: echo "An error occurred"

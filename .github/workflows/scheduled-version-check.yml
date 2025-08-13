@@ -1,0 +1,140 @@
+name: Scheduled Version Check
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_pr:
+        description: 'Create PR if updates are available'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for PHP updates
+      id: check_php
+      run: |
+        # Get current PHP version from Dockerfile
+        CURRENT_PHP=$(grep -oP 'php\K8\.\d+' Dockerfile | head -1)
+        
+        # Get latest PHP version (simplified check)
+        LATEST_PHP=$(curl -s "https://www.php.net/releases/active" | grep -oP 'PHP \K8\.\d+' | sort -V | tail -1 || echo "8.2")
+        
+        echo "current_php=$CURRENT_PHP" >> $GITHUB_OUTPUT
+        echo "latest_php=$LATEST_PHP" >> $GITHUB_OUTPUT
+        echo "php_update_available=$([[ '$CURRENT_PHP' != '$LATEST_PHP' ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+        
+        echo "Current PHP: $CURRENT_PHP"
+        echo "Latest PHP: $LATEST_PHP"
+
+    - name: Check for Moodle updates
+      id: check_moodle
+      run: |
+        # Get current Moodle version from Dockerfile
+        CURRENT_MOODLE=$(grep -oP 'stable\K\d+' Dockerfile | head -1)
+        
+        # Get latest Moodle LTS version
+        LATEST_MOODLE=$(curl -s "https://download.moodle.org/releases/latest/" | grep -oP 'stable\K\d+' | sort -n | tail -1 || echo "404")
+        
+        echo "current_moodle=$CURRENT_MOODLE" >> $GITHUB_OUTPUT
+        echo "latest_moodle=$LATEST_MOODLE" >> $GITHUB_OUTPUT
+        echo "moodle_update_available=$([[ '$CURRENT_MOODLE' != '$LATEST_MOODLE' ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+        
+        echo "Current Moodle: $CURRENT_MOODLE"
+        echo "Latest Moodle: $LATEST_MOODLE"
+
+    - name: Create issue for updates
+      if: steps.check_php.outputs.php_update_available == 'true' || steps.check_moodle.outputs.moodle_update_available == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const phpUpdate = '${{ steps.check_php.outputs.php_update_available }}' === 'true';
+          const moodleUpdate = '${{ steps.check_moodle.outputs.moodle_update_available }}' === 'true';
+          
+          let updateDetails = [];
+          if (phpUpdate) {
+            updateDetails.push(`- **PHP**: ${{ steps.check_php.outputs.current_php }} → ${{ steps.check_php.outputs.latest_php }}`);
+          }
+          if (moodleUpdate) {
+            updateDetails.push(`- **Moodle**: ${{ steps.check_moodle.outputs.current_moodle }} → ${{ steps.check_moodle.outputs.latest_moodle }}`);
+          }
+          
+          const title = `🔄 Version Updates Available`;
+          const body = `## Updates Available
+          
+          The following component updates are available:
+          
+          ${updateDetails.join('\n')}
+          
+          ## Next Steps
+          
+          1. **Manual Testing**: Run the manual workflow to test these versions:
+             - Go to [Actions → Test and Update Versions](../../actions/workflows/test-and-update.yml)
+             - Click "Run workflow"
+             - Set PHP version to: \`${{ steps.check_php.outputs.latest_php }}\`
+             - Set Moodle version to: \`${{ steps.check_moodle.outputs.latest_moodle }}\`
+             - Enable "Create a new release if tests pass" if desired
+          
+          2. **Alternative**: Use the update script locally:
+             \`\`\`bash
+             ./scripts/update-versions.sh update ${{ steps.check_php.outputs.latest_php }} ${{ steps.check_moodle.outputs.latest_moodle }}
+             \`\`\`
+          
+          ## Version Details
+          
+          | Component | Current | Latest | Update Available |
+          |-----------|---------|--------|------------------|
+          | PHP | ${{ steps.check_php.outputs.current_php }} | ${{ steps.check_php.outputs.latest_php }} | ${phpUpdate ? '✅' : '❌'} |
+          | Moodle | ${{ steps.check_moodle.outputs.current_moodle }} | ${{ steps.check_moodle.outputs.latest_moodle }} | ${moodleUpdate ? '✅' : '❌'} |
+          
+          ---
+          *This issue was automatically created by the scheduled version check workflow.*`;
+          
+          // Check if a similar issue already exists
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: 'version-update'
+          });
+          
+          const existingIssue = issues.data.find(issue => 
+            issue.title.includes('Version Updates Available')
+          );
+          
+          if (existingIssue) {
+            // Update existing issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existingIssue.number,
+              title: title,
+              body: body
+            });
+            console.log(`Updated existing issue: ${existingIssue.html_url}`);
+          } else {
+            // Create new issue
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['version-update', 'enhancement']
+            });
+            console.log(`Created new issue: ${issue.data.html_url}`);
+          }
+
+    - name: No updates available
+      if: steps.check_php.outputs.php_update_available == 'false' && steps.check_moodle.outputs.moodle_update_available == 'false'
+      run: |
+        echo "✅ All versions are up to date!"
+        echo "Current PHP: ${{ steps.check_php.outputs.current_php }}"
+        echo "Current Moodle: ${{ steps.check_moodle.outputs.current_moodle }}"
