@@ -2,6 +2,8 @@
 
 # Moodle-Dockerized
 
+[![Scheduled Version Check](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml/badge.svg)](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml)
+
 This repository provides a ready-to-use Docker environment for running Moodle, the popular open-source learning management system. It includes all necessary configuration files and scripts to deploy Moodle with PHP, Nginx, and supporting services in containers.
 
 ## Features
