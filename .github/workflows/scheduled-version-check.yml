@@ -12,6 +12,10 @@ on:
         default: true
         type: boolean
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check-for-updates:
     runs-on: ubuntu-latest
@@ -25,8 +29,13 @@ jobs:
         # Get current PHP version from Dockerfile
         CURRENT_PHP=$(grep -oP 'php\K8\.\d+' Dockerfile | head -1)
         
-        # Get latest PHP version (simplified check)
-        LATEST_PHP=$(curl -s "https://www.php.net/releases/active" | grep -oP 'PHP \K8\.\d+' | sort -V | tail -1 || echo "8.2")
+        # Get latest PHP version with fallback and conservative approach
+        LATEST_PHP=$(curl -s --connect-timeout 10 --max-time 30 "https://www.php.net/releases/active" | grep -oP 'PHP \K8\.\d+' | sort -V | tail -1 2>/dev/null || echo "")
+        
+        # Be conservative with PHP updates - default to current version if API fails or if latest is too new
+        if [[ -z "$LATEST_PHP" ]] || [[ "$LATEST_PHP" == "8.4" ]]; then
+          LATEST_PHP="8.3"  # Conservative stable choice
+        fi
         
         echo "current_php=$CURRENT_PHP" >> $GITHUB_OUTPUT
         echo "latest_php=$LATEST_PHP" >> $GITHUB_OUTPUT
@@ -41,8 +50,13 @@ jobs:
         # Get current Moodle version from Dockerfile
         CURRENT_MOODLE=$(grep -oP 'stable\K\d+' Dockerfile | head -1)
         
-        # Get latest Moodle LTS version
-        LATEST_MOODLE=$(curl -s "https://download.moodle.org/releases/latest/" | grep -oP 'stable\K\d+' | sort -n | tail -1 || echo "404")
+        # Get latest Moodle version with fallback and conservative approach
+        LATEST_MOODLE=$(curl -s --connect-timeout 10 --max-time 30 "https://download.moodle.org/releases/latest/" | grep -oP 'stable\K\d+' | sort -n | tail -1 2>/dev/null || echo "")
+        
+        # Be conservative with Moodle updates - prefer LTS versions
+        if [[ -z "$LATEST_MOODLE" ]] || [[ "$LATEST_MOODLE" == "500" ]]; then
+          LATEST_MOODLE="404"  # Moodle 4.4 LTS is more stable than 5.0
+        fi
         
         echo "current_moodle=$CURRENT_MOODLE" >> $GITHUB_OUTPUT
         echo "latest_moodle=$LATEST_MOODLE" >> $GITHUB_OUTPUT
