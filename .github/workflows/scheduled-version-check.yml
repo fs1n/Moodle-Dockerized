@@ -149,6 +149,6 @@ jobs:
     - name: No updates available
       if: steps.check_php.outputs.php_update_available == 'false' && steps.check_moodle.outputs.moodle_update_available == 'false'
       run: |
-        echo "✅ All versions are up to date!"
+        echo "All versions are up to date!"
         echo "Current PHP: ${{ steps.check_php.outputs.current_php }}"
         echo "Current Moodle: ${{ steps.check_moodle.outputs.current_moodle }}"
