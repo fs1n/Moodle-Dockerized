@@ -47,4 +47,23 @@ class WorkflowTest extends TestCase
         // Check for fallback logic
         $this->assertStringContainsString('echo ""', $content, 'Workflow should have fallback for empty API responses');
     }
+    
+    public function testWorkflowVersionComparisonLogic()
+    {
+        $workflowPath = __DIR__ . '/../.github/workflows/scheduled-version-check.yml';
+        $content = file_get_contents($workflowPath);
+        
+        // Check that the workflow uses proper variable expansion in comparisons
+        // The bug was using single quotes around variables which treats them as literals
+        $this->assertStringContainsString('"$CURRENT_PHP" != "$LATEST_PHP"', $content, 
+            'PHP comparison should use double quotes for variable expansion');
+        $this->assertStringContainsString('"$CURRENT_MOODLE" != "$LATEST_MOODLE"', $content, 
+            'Moodle comparison should use double quotes for variable expansion');
+            
+        // Ensure we don't have the buggy literal string comparison
+        $this->assertStringNotContainsString('\'$CURRENT_PHP\' != \'$LATEST_PHP\'', $content, 
+            'Should not use single quotes around variables (causes literal comparison bug)');
+        $this->assertStringNotContainsString('\'$CURRENT_MOODLE\' != \'$LATEST_MOODLE\'', $content, 
+            'Should not use single quotes around variables (causes literal comparison bug)');
+    }
 }
