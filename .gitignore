@@ -477,3 +477,6 @@ composer.json
 .phpunit.result.cache
 
 .phpunit.cache
+
+# PHPUnit phar files
+phpunit.phar

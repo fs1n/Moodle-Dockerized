@@ -39,7 +39,7 @@ jobs:
         
         echo "current_php=$CURRENT_PHP" >> $GITHUB_OUTPUT
         echo "latest_php=$LATEST_PHP" >> $GITHUB_OUTPUT
-        echo "php_update_available=$([[ '$CURRENT_PHP' != '$LATEST_PHP' ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+        echo "php_update_available=$([[ "$CURRENT_PHP" != "$LATEST_PHP" ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
         
         echo "Current PHP: $CURRENT_PHP"
         echo "Latest PHP: $LATEST_PHP"
@@ -60,7 +60,7 @@ jobs:
         
         echo "current_moodle=$CURRENT_MOODLE" >> $GITHUB_OUTPUT
         echo "latest_moodle=$LATEST_MOODLE" >> $GITHUB_OUTPUT
-        echo "moodle_update_available=$([[ '$CURRENT_MOODLE' != '$LATEST_MOODLE' ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+        echo "moodle_update_available=$([[ "$CURRENT_MOODLE" != "$LATEST_MOODLE" ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
         
         echo "Current Moodle: $CURRENT_MOODLE"
         echo "Latest Moodle: $LATEST_MOODLE"
