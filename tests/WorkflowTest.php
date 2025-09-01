@@ -18,7 +18,7 @@ class WorkflowTest extends TestCase
         // Check that permissions are defined
         $this->assertStringContainsString('permissions:', $content, 'Workflow should have permissions section');
         $this->assertStringContainsString('issues: write', $content, 'Workflow should have issues write permission');
-        $this->assertStringContainsString('contents: read', $content, 'Workflow should have contents read permission');
+        $this->assertStringContainsString('contents: write', $content, 'Workflow should have contents write permission for badge updates');
     }
     
     public function testVersionExtractionWorks()
@@ -33,6 +33,42 @@ class WorkflowTest extends TestCase
         // Test Moodle version extraction  
         preg_match('/stable(\d+)/', $content, $moodleMatches);
         $this->assertNotEmpty($moodleMatches, 'Should be able to extract Moodle version from Dockerfile');
+    }
+    
+    public function testVersionBadgesExist()
+    {
+        $readmePath = __DIR__ . '/../README.md';
+        $content = file_get_contents($readmePath);
+        
+        // Check that version badges are present
+        $this->assertStringContainsString('![PHP Version]', $content, 'README should contain PHP version badge');
+        $this->assertStringContainsString('![Moodle Version]', $content, 'README should contain Moodle version badge');
+        $this->assertStringContainsString('![Database Support]', $content, 'README should contain database support badge');
+        
+        // Check badge URLs
+        $this->assertStringContainsString('https://img.shields.io/badge/PHP-', $content, 'PHP badge should use shields.io');
+        $this->assertStringContainsString('https://img.shields.io/badge/Moodle-', $content, 'Moodle badge should use shields.io');
+        $this->assertStringContainsString('https://img.shields.io/badge/Database-', $content, 'Database badge should use shields.io');
+        
+        // Verify current versions in badges match Dockerfile
+        $dockerfilePath = __DIR__ . '/../Dockerfile';
+        $dockerfileContent = file_get_contents($dockerfilePath);
+        
+        preg_match('/php(\d+\.\d+)/', $dockerfileContent, $phpMatches);
+        if (!empty($phpMatches)) {
+            $expectedPhpVersion = $phpMatches[1];
+            $this->assertStringContainsString("PHP-{$expectedPhpVersion}-blue", $content, 
+                "README PHP badge should show current PHP version {$expectedPhpVersion}");
+        }
+        
+        preg_match('/stable(\d+)/', $dockerfileContent, $moodleMatches);
+        if (!empty($moodleMatches)) {
+            $moodleVersion = $moodleMatches[1];
+            // Convert to display format
+            $moodleDisplay = $moodleVersion === '404' ? '4.4_LTS' : $moodleVersion;
+            $this->assertStringContainsString("Moodle-{$moodleDisplay}-green", $content, 
+                "README Moodle badge should show current Moodle version {$moodleDisplay}");
+        }
     }
     
     public function testWorkflowHasErrorHandling()

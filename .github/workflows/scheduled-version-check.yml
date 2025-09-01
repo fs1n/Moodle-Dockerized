@@ -13,7 +13,7 @@ on:
         type: boolean
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -64,6 +64,53 @@ jobs:
         
         echo "Current Moodle: $CURRENT_MOODLE"
         echo "Latest Moodle: $LATEST_MOODLE"
+
+    - name: Update version badges in README
+      run: |
+        # Get current versions from previous steps
+        PHP_VERSION="${{ steps.check_php.outputs.current_php }}"
+        MOODLE_VERSION="${{ steps.check_moodle.outputs.current_moodle }}"
+        
+        # Convert Moodle version to readable format (404 -> 4.4 LTS)
+        case "$MOODLE_VERSION" in
+          "400") MOODLE_DISPLAY="4.0" ;;
+          "401") MOODLE_DISPLAY="4.1" ;;
+          "402") MOODLE_DISPLAY="4.2" ;;
+          "403") MOODLE_DISPLAY="4.3" ;;
+          "404") MOODLE_DISPLAY="4.4_LTS" ;;
+          "405") MOODLE_DISPLAY="4.5" ;;
+          "500") MOODLE_DISPLAY="5.0" ;;
+          *) MOODLE_DISPLAY="$MOODLE_VERSION" ;;
+        esac
+        
+        # Update PHP badge
+        sed -i "s|PHP-[0-9.]*-blue|PHP-$PHP_VERSION-blue|g" README.md
+        
+        # Update Moodle badge
+        sed -i "s|Moodle-[^-]*-green|Moodle-$MOODLE_DISPLAY-green|g" README.md
+        
+        echo "Updated badges to PHP $PHP_VERSION and Moodle $MOODLE_DISPLAY"
+        
+        # Check if changes were made
+        if git diff --quiet README.md; then
+          echo "No badge updates needed"
+        else
+          echo "Badge updates made:"
+          git diff README.md
+        fi
+
+    - name: Commit badge updates
+      run: |
+        if ! git diff --quiet README.md; then
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md
+          git commit -m "Update version badges: PHP ${{ steps.check_php.outputs.current_php }}, Moodle ${{ steps.check_moodle.outputs.current_moodle }}"
+          git push
+          echo "Version badges updated and committed"
+        else
+          echo "No badge updates to commit"
+        fi
 
     - name: Create issue for updates
       if: steps.check_php.outputs.php_update_available == 'true' || steps.check_moodle.outputs.moodle_update_available == 'true'
