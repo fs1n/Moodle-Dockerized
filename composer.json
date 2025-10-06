@@ -1,0 +1,14 @@
+{
+    "name": "fs1n/moodle-dockerized",
+    "description": "Docker environment for Moodle with PHP, Nginx, and supporting services",
+    "type": "project",
+    "license": "GPL-3.0-or-later",
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload-dev": {
+        "classmap": [
+            "tests/"
+        ]
+    }
+}

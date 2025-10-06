@@ -472,8 +472,6 @@ composer.lock
 *.sass.map
 *.scss.map
 
-composer.json
-
 .phpunit.result.cache
 
 .phpunit.cache
