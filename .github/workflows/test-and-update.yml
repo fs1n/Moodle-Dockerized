@@ -211,6 +211,10 @@ jobs:
         # Update Moodle version in Dockerfile
         sed -i "s/stable[0-9]\+/stable${{ inputs.moodle_version }}/g" Dockerfile
         sed -i "s/latest-[0-9]\+/latest-${{ inputs.moodle_version }}/g" Dockerfile
+        
+        # Update PHP-FPM version in supervisor config
+        sed -i "s/php-fpm8\.[0-9]/php-fpm${{ inputs.php_version }}/g" docker/supervisor/supervisord.conf
+        sed -i "s/\/etc\/php\/8\.[0-9]\//\/etc\/php\/${{ inputs.php_version }}\/g" docker/supervisor/supervisord.conf
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v5

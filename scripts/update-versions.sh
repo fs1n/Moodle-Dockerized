@@ -80,6 +80,22 @@ update_dockerfile() {
     
     echo -e "${GREEN}Dockerfile updated successfully!${NC}"
     echo -e "${BLUE}Backup saved as Dockerfile.backup${NC}"
+    
+    # Update supervisord.conf with PHP version
+    echo -e "${YELLOW}Updating supervisord.conf...${NC}"
+    if [[ -f "docker/supervisor/supervisord.conf" ]]; then
+        # Backup original supervisord.conf
+        cp docker/supervisor/supervisord.conf docker/supervisor/supervisord.conf.backup
+        
+        # Update PHP-FPM version in supervisord.conf
+        sed -i "s|php-fpm8\.[0-9]|php-fpm${php_version}|g" docker/supervisor/supervisord.conf
+        sed -i "s|/etc/php/8\.[0-9]/|/etc/php/${php_version}/|g" docker/supervisor/supervisord.conf
+        
+        echo -e "${GREEN}supervisord.conf updated successfully!${NC}"
+        echo -e "${BLUE}Backup saved as docker/supervisor/supervisord.conf.backup${NC}"
+    else
+        echo -e "${RED}supervisord.conf not found!${NC}"
+    fi
 }
 
 # Function to run tests
