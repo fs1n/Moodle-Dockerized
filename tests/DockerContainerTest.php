@@ -119,4 +119,36 @@ class DockerContainerTest extends TestCase
         $this->assertGreaterThanOrEqual(400, $moodleVersion, 
             'Moodle version should be 4.0 or higher');
     }
+
+    public function testPhpVersionConsistencyBetweenDockerfileAndSupervisor()
+    {
+        // Test that PHP version in Dockerfile matches supervisord.conf
+        $dockerfilePath = __DIR__ . '/../Dockerfile';
+        $supervisorConfigPath = __DIR__ . '/../docker/supervisor/supervisord.conf';
+        
+        $dockerfileContent = file_get_contents($dockerfilePath);
+        $supervisorContent = file_get_contents($supervisorConfigPath);
+        
+        // Extract PHP version from Dockerfile (e.g., php8.3)
+        preg_match('/php(\d+\.\d+)/', $dockerfileContent, $dockerfileMatches);
+        $this->assertNotEmpty($dockerfileMatches, 'Should find PHP version in Dockerfile');
+        $dockerfilePhpVersion = $dockerfileMatches[1];
+        
+        // Extract PHP version from supervisord.conf (e.g., php-fpm8.3)
+        preg_match('/php-fpm(\d+\.\d+)/', $supervisorContent, $supervisorMatches);
+        $this->assertNotEmpty($supervisorMatches, 'Should find PHP-FPM version in supervisord.conf');
+        $supervisorPhpVersion = $supervisorMatches[1];
+        
+        // They should match
+        $this->assertEquals($dockerfilePhpVersion, $supervisorPhpVersion,
+            "PHP version in Dockerfile ({$dockerfilePhpVersion}) should match supervisord.conf ({$supervisorPhpVersion})");
+        
+        // Also check the PHP config path in supervisord.conf
+        preg_match('/\/etc\/php\/(\d+\.\d+)\//', $supervisorContent, $configPathMatches);
+        $this->assertNotEmpty($configPathMatches, 'Should find PHP config path in supervisord.conf');
+        $configPathPhpVersion = $configPathMatches[1];
+        
+        $this->assertEquals($dockerfilePhpVersion, $configPathPhpVersion,
+            "PHP version in Dockerfile ({$dockerfilePhpVersion}) should match PHP config path in supervisord.conf ({$configPathPhpVersion})");
+    }
 }
