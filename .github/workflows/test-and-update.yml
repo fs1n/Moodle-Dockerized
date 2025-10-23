@@ -18,6 +18,11 @@ on:
         required: false
         default: false
         type: boolean
+      create_pr:
+        description: 'Create a pull request with the updated Dockerfile'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   check-versions:
@@ -205,7 +210,7 @@ jobs:
   update-dockerfile:
     runs-on: ubuntu-latest
     needs: [check-versions, build-and-test]
-    if: success()
+    if: ${{ inputs.create_pr == true && success() }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -254,43 +259,4 @@ jobs:
         branch: update-php${{ inputs.php_version }}-moodle${{ inputs.moodle_version }}
         delete-branch: true
 
-  create-release:
-    runs-on: ubuntu-latest
-    needs: [check-versions, build-and-test, update-dockerfile]
-    if: ${{ inputs.create_release == true && success() }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
 
-    - name: Create Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: "v${{ inputs.moodle_version }}-php${{ inputs.php_version }}"
-        release_name: "Moodle ${{ inputs.moodle_version }} with PHP ${{ inputs.php_version }}"
-        body: |
-          ## Moodle Docker Image Release
-          
-          This release includes:
-          - **Moodle Version**: ${{ inputs.moodle_version }}
-          - **PHP Version**: ${{ inputs.php_version }}
-          - **Nginx**: Latest
-          
-          ## What's Tested
-          ✅ Docker image builds successfully
-          ✅ Container starts and runs correctly
-          ✅ Moodle web interface is accessible
-          ✅ All PHPUnit tests pass
-          
-          ## Version Information
-          - Latest PHP available: ${{ needs.check-versions.outputs.latest_php }}
-          - Latest Moodle available: ${{ needs.check-versions.outputs.latest_moodle }}
-          
-          ## Usage
-          ```bash
-          docker pull ghcr.io/${{ github.repository }}:v${{ inputs.moodle_version }}-php${{ inputs.php_version }}
-          docker run -d -p 8080:80 ghcr.io/${{ github.repository }}:v${{ inputs.moodle_version }}-php${{ inputs.php_version }}
-          ```
-        draft: false
-        prerelease: false
