@@ -9,15 +9,10 @@ on:
         default: '8.2'
         type: string
       moodle_version:
-        description: 'Moodle version to test (e.g., 404, 405)'
+        description: 'Moodle version to test (e.g., 404, 501)'
         required: false
         default: '404'
         type: string
-      create_release:
-        description: 'Create a new release if tests pass'
-        required: false
-        default: false
-        type: boolean
       create_pr:
         description: 'Create a pull request with the updated Dockerfile'
         required: false
