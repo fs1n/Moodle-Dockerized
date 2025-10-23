@@ -81,8 +81,10 @@ jobs:
         ARG MOODLE_VERSION
         
         RUN apt update -y
-        RUN apt install -y lsb-release apt-transport-https ca-certificates software-properties-common curl wget sudo supervisor cron
-        
+        RUN apt-get install -y --no-install-recommends \
+            lsb-release ca-certificates gnupg dirmngr curl wget sudo supervisor cron apt-utils
+        RUN rm -rf /var/lib/apt/lists/*
+
         RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
         RUN sh -c 'echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
         RUN apt update -y
