@@ -11,7 +11,7 @@ RUN apt install php8.3-common php8.3-fpm php8.3-mysql php8.3-ctype php8.3-curl p
 
 COPY ./nginx/default.conf /etc/nginx/conf.d/default.conf
 
-RUN curl -sL --retry 5 --retry-connrefused --retry-max-time 120 https://download.moodle.org/download.php/direct/stable404/moodle-latest-404.tgz | tar xz -C /usr/share/nginx/html
+RUN curl -sL --retry 5 --retry-connrefused --retry-max-time 120 https://download.moodle.org/download.php/direct/stable501/moodle-latest-501.tgz | tar xz -C /usr/share/nginx/html
 
 RUN sed -i "/^\/\/.*xsendfile = 'X-Accel-Redirect';/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
 RUN sed -i "/^\/\/.*xsendfilealiases = array(/s/^\/\///" /usr/share/nginx/html/moodle/config-dist.php
