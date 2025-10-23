@@ -3,6 +3,7 @@
 # Moodle-Dockerized
 
 [![Scheduled Version Check](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml/badge.svg)](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml)
+[![Test and Update Versions](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/test-and-update.yml/badge.svg)](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/test-and-update.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.3-blue.svg)](https://www.php.net/)
 [![Moodle Version](https://img.shields.io/badge/Moodle-4.4_LTS-green.svg)](https://moodle.org/)
 [![Database Support](https://img.shields.io/badge/Database-MySQL_8.0%2B%20%7C%20MariaDB_10.6%2B-orange.svg)](https://docs.moodle.org/)
