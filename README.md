@@ -5,7 +5,7 @@
 [![Scheduled Version Check](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml/badge.svg)](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/scheduled-version-check.yml)
 [![Test and Update Versions](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/test-and-update.yml/badge.svg)](https://github.com/fs1n/Moodle-Dockerized/actions/workflows/test-and-update.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.3-blue.svg)](https://www.php.net/)
-[![Moodle Version](https://img.shields.io/badge/Moodle-4.4_LTS-green.svg)](https://moodle.org/)
+[![Moodle Version](https://img.shields.io/badge/Moodle-501-green.svg)](https://moodle.org/)
 [![Database Support](https://img.shields.io/badge/Database-MySQL_8.0%2B%20%7C%20MariaDB_10.6%2B-orange.svg)](https://docs.moodle.org/)
 
 This repository provides a ready-to-use Docker environment for running Moodle, the popular open-source learning management system. It includes all necessary configuration files and scripts to deploy Moodle with PHP, Nginx, and supporting services in containers.
