@@ -36,19 +36,5 @@ This repository provides a ready-to-use Docker environment for running Moodle, t
 	```
 3. Access Moodle in your browser at [http://localhost:8080](http://localhost:8080).
 
-## Notes
-- This setup is intended for development and testing only. For production use, further security and configuration adjustments are required.
-- **Version Management**: Automated workflows are available to keep PHP and Moodle versions up to date. See [docs/VERSION_MANAGEMENT.md](docs/VERSION_MANAGEMENT.md) for details.
-
-## Version Management
-
-This repository includes automated workflows for keeping PHP and Moodle versions current:
-
-- **Manual Testing**: Go to Actions → "Test and Update Versions" to test specific versions
-- **Automatic Monitoring**: Weekly checks for new versions with issue creation
-- **Local Tools**: Use `./scripts/update-versions.sh` for local version management
-
-For detailed information, see the [Version Management Guide](docs/VERSION_MANAGEMENT.md).
-
 ## License
 See [LICENSE](LICENSE).
